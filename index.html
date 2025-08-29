@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Academia Hub</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: cursive;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      text-align: center;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    header {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      font-size: 24px;
+    }
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: rgba(0,0,0,0.6);
+    }
+    nav .username {
+      font-weight: bold;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      padding: 20px;
+    }
+    .card {
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    .card img {
+      max-width: 100%;
+      border-radius: 8px;
+    }
+    .card button {
+      margin-top: 8px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      background: #ff9800;
+      color: white;
+      cursor: pointer;
+    }
+    #adminPanel {
+      display: none;
+      background: #222;
+      padding: 20px;
+      color: white;
+      max-width: 700px;
+      margin: 20px auto;
+      border-radius: 10px;
+      text-align: left;
+    }
+    input[type="text"], input[type="password"] {
+      width: 70%;
+      padding: 6px;
+      margin: 6px 0;
+      border-radius: 4px;
+      border: none;
+    }
+    button.admin-btn {
+      margin-left: 6px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      background: #2196f3;
+      color: white;
+      cursor: pointer;
+    }
+    button.admin-btn.danger {
+      background: #f44336;
+    }
+    .dark-mode {
+      background: #222 !important;
+      color: #ddd !important;
+    }
+  </style>
+</head>
+<body>
+
+<header>🎮 Academia Hub 🎮</header>
+
+<nav>
+  <div class="username" id="currentUser"></div>
+  <div>
+    <button onclick="showAdminLogin()">Admin</button>
+    <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+  </div>
+</nav>
+
+<h2>Games</h2>
+<div class="grid" id="gamesGrid"></div>
+
+<div id="adminPanel">
+  <h2>Admin Panel</h2>
+  <div id="userList"></div>
+
+  <h3>Promote User to Admin</h3>
+  <input type="text" id="newAdminUsername" placeholder="Enter username to promote" />
+  <button class="admin-btn" onclick="giveAdmin()">Promote to Admin</button>
+
+  <h3>Add New Game</h3>
+  <input type="text" id="gameName" placeholder="Game Name" />
+  <input type="text" id="gameImg" placeholder="Game Image URL" />
+  <input type="text" id="gameLink" placeholder="Game Link" />
+  <button class="admin-btn" onclick="addGame()">Add Game</button>
+
+  <h3>Activity Log</h3>
+  <div id="activityLog" style="max-height:200px;overflow:auto;background:#111;padding:10px;border-radius:6px;"></div>
+
+  <button class="admin-btn danger" onclick="logoutAdmin()">Logout</button>
+</div>
+
+<script>
+  let users = JSON.parse(localStorage.getItem("users")) || [];
+  let banned = JSON.parse(localStorage.getItem("banned")) || [];
+  let admins = JSON.parse(localStorage.getItem("admins")) || {
+    "quan": "quandev123",
+    "kiya": "kiyadev123"
+  };
+  let games = JSON.parse(localStorage.getItem("games")) || [
+    { name: "Math Game", img: "https://via.placeholder.com/150?text=Math+Game", link: "https://www.coolmathgames.com/" },
+    { name: "Typing Club", img: "https://via.placeholder.com/150?text=Typing+Club", link: "https://www.typingclub.com/" },
+    { name: "Sudoku", img: "https://via.placeholder.com/150?text=Sudoku", link: "https://sudoku.com" },
+    { name: "History Quiz", img: "https://via.placeholder.com/150?text=History+Quiz", link: "https://www.history.com/topics" },
+    { name: "English Grammar Game", img: "https://via.placeholder.com/150?text=Grammar+Game", link: "https://www.englishclub.com/grammar/" },
+    { name: "Science Experiment", img: "https://via.placeholder.com/150?text=Science+Exp", link: "https://www.scientificamerican.com" },
+    { name: "Math Puzzle", img: "https://via.placeholder.com/150?text=Math+Puzzle", link: "https://www.brainbenders.com" },
+    { name: "Word Search", img: "https://via.placeholder.com/150?text=Word+Search", link: "https://www.puzzle-maker.com" },
+    { name: "Geography Game", img: "https://via.placeholder.com/150?text=Geography+Game", link: "https://www.sporcle.com/games" },
+    { name: "Spelling Bee", img: "https://via.placeholder.com/150?text=Spelling+Bee", link: "https://www.spellingcity.com/" }
+  ];
+  let activityLog = JSON.parse(localStorage.getItem("activityLog")) || [];
+  let currentUser = "";
+
+  function askUsername() {
+    currentUser = prompt("Enter your username:");
+    if (!currentUser) { askUsername(); return; }
+    if (banned.includes(currentUser)) {
+      alert("You are banned!");
+      currentUser = "";
+      askUsername();
+      return;
+    }
+    if (!users.includes(currentUser)) users.push(currentUser);
+    localStorage.setItem("users", JSON.stringify(users));
+    document.getElementById("currentUser").innerText = "👤 " + currentUser;
+    renderGames();
+  }
+
+  askUsername();
+
+  function logActivity(text) {
+    const timestamp = new Date().toLocaleString();
+    activityLog.push(`[${timestamp}] ${text}`);
+    if(activityLog.length > 100) activityLog.shift();
+    localStorage.setItem("activityLog", JSON.stringify(activityLog));
+    updateActivityLog();
+  }
+
+  function updateActivityLog() {
+    document.getElementById("activityLog").innerHTML = activityLog.map(item => `<div>${item}</div>`).join("");
+  }
+
+  function updateUserList() {
+    let html = "<h3>Active Users</h3><ul>";
+    users.forEach(u => {
+      const isAdmin = admins[u] ? " (Admin)" : "";
+      html += `<li>${u}${isAdmin} 
+      <button class="admin-btn danger" onclick="banUser('${u}')">Ban & Kick</button>
+      <button class="admin-btn" onclick="unbanUser('${u}')">Unban</button>
+      <button class="admin-btn danger" onclick="deleteUser('${u}')">Delete User</button></li>`;
+    });
+    html += "</ul>";
+    document.getElementById("userList").innerHTML = html;
+  }
+
+  function banUser(u) {
+    if (!banned.includes(u)) banned.push(u);
+    localStorage.setItem("banned", JSON.stringify(banned));
+    logActivity(`Banned user: ${u}`);
+    updateUserList();
+    if (currentUser === u) {
+      alert("You have been banned and kicked off!");
+      currentUser = "";
+      askUsername();
+    }
+  }
+
+  function unbanUser(u) {
+    banned = banned.filter(x => x !== u);
+    localStorage.setItem("banned", JSON.stringify(banned));
+    logActivity(`Unbanned user: ${u}`);
+    updateUserList();
+  }
+
+  function deleteUser(u) {
+    users = users.filter(x => x !== u);
+    localStorage.setItem("users", JSON.stringify(users));
+    logActivity(`Deleted user: ${u}`);
+    updateUserList();
+    if (currentUser === u) {
+      alert("Your user has been deleted and you are kicked off!");
+      currentUser = "";
+      askUsername();
+    }
+  }
+
+  function giveAdmin() {
+    const username = document.getElementById("newAdminUsername").value.trim();
+    if (!username) {
+      alert("Please enter a username");
+      return;
+    }
+    if (admins[username]) {
+      alert(`${username} is already an admin!`);
+      return;
+    }
+    admins[username] = "adminpassword"; // Default password
+    localStorage.setItem("admins", JSON.stringify(admins));
+    logActivity(`${username} promoted to admin`);
+    alert(`${username} has been promoted to admin! Default password: adminpassword`);
+    document.getElementById("newAdminUsername").value = "";
+  }
+
+  function addGame() {
+    const gameName = document.getElementById("gameName").value.trim();
+    const gameImg = document.getElementById("gameImg").value.trim();
+    const gameLink = document.getElementById("gameLink").value.trim();
+    if (!gameName || !gameImg || !gameLink) {
+      alert("Please fill in all game fields");
+      return;
+    }
+    games.push({ name: gameName, img: gameImg, link: gameLink });
+    localStorage.setItem("games", JSON.stringify(games));
+    logActivity(`Added new game: ${gameName}`);
+    document.getElementById("gameName").value = "";
+    document.getElementById("gameImg").value = "";
+    document.getElementById("gameLink").value = "";
+    renderGames();
+  }
+
+  function renderGames() {
+    const gamesGrid = document.getElementById("gamesGrid");
+    gamesGrid.innerHTML = "";
+    games.forEach((g, i) => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `<img src="${g.img}" alt="${g.name}" />
+                       <div><strong>${g.name}</strong></div>
+                       <button onclick="window.open('${g.link}', '_blank')">Play</button>`;
+      gamesGrid.appendChild(div);
+    });
+  }
+
+  function showAdminLogin() {
+    let username = prompt("Admin Username:");
+    if (!username) return;
+    let pwd = prompt("Admin Password:");
+    if (!pwd) return;
+    if (admins[username] && admins[username] === pwd) {
+      document.getElementById("adminPanel").style.display = "block";
+      updateUserList();
+      updateActivityLog();
+      logActivity(`Admin ${username} logged in`);
+    } else {
+      alert("Wrong admin username or password!");
+    }
+  }
+
+  function logoutAdmin() {
+    document.getElementById("adminPanel").style.display = "none";
+  }
+
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+  }
+
+  renderGames();
+</script>
+
+</body>
+</html>
